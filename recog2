@@ -1,0 +1,158 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+USE ieee.numeric_std.ALL;
+
+ENTITY recog2 IS
+PORT(
+  x: in Std.STANDARD.BIT;
+  clk: in Std.STANDARD.BIT ;
+  reset: in Std.STANDARD.BIT;
+  y: out Std.STANDARD.BIT);
+end;
+
+ARCHITECTURE myArch OF recog2 IS
+  -- State declaration
+  TYPE state_type IS (INIT, ZEROS, ONES);  -- List your states here 	
+  SIGNAL curState, nextState: state_type;
+  SIGNAL ZERO_COUNTER, ONE_COUNTER: INTEGER;
+  SIGNAL EN_ZERO_COUNTER, EN_ONE_COUNTER: BIT;
+  SIGNAL REST_ZERO_COUNTER, REST_ONE_COUNTER: BIT;
+  SIGNAL X_reg: Std.STANDARD.BIT;
+BEGIN
+  -----------------------------------------------------
+  combi_nextState: PROCESS(curState, X_reg, ZERO_COUNTER, ONE_COUNTER )
+  BEGIN
+  	EN_ZERO_COUNTER   <= '0';
+    REST_ZERO_COUNTER <= '0';
+    EN_ONE_COUNTER    <= '0';
+    REST_ONE_COUNTER  <= '0';
+    
+    CASE curState IS
+      
+      WHEN INIT =>
+      	 IF X_reg ='0' THEN 
+         	EN_ZERO_COUNTER <= '1';
+      		nextState <= ZEROS;
+         ELSE
+         	
+         	nextState <= INIT;
+         END IF;
+      
+      WHEN ZEROS =>
+        IF X_reg='0' THEN 
+        	
+          nextState <= ZEROS;
+          if  ZERO_COUNTER < 15 THEN
+          	  EN_ZERO_COUNTER <= '1';
+          end if; 
+          
+        ELSE
+        	if ZERO_COUNTER = 15 THEN
+            	nextState <= ONES;
+             else
+             
+              nextState <= INIT;-- Fill in
+              REST_ZERO_COUNTER <= '1';
+              
+            end if;
+            
+        END IF;
+        
+      WHEN ONES =>
+        IF X_reg='1' THEN
+        	EN_ONE_COUNTER <= '1';
+          	nextState <= ONES; -- Fill in
+          
+           if  ONE_COUNTER < 16 THEN
+          		EN_ONE_COUNTER <= '1';
+          end if;
+          
+          
+        ELSE
+        	if ONE_COUNTER = 17 THEN
+            	nextState <= INIT;
+                
+             else
+             
+              nextState <= ZEROS;-- Fill in
+              REST_ONE_COUNTER <= '1';
+              EN_ZERO_COUNTER <= '1';
+              
+            end if;
+          
+        END IF;
+        
+    
+      
+      	
+        
+    END CASE;
+  END PROCESS; -- combi_nextState
+  -----------------------------------------------------
+  -------------COUNTERS------------------------
+  --ZERO_COUNTER----
+  ZeroCounter: PROCESS(reset, clk, REST_ZERO_COUNTER) 
+  	BEGIN
+    	IF reset = '0' OR REST_ZERO_COUNTER = '1' THEN
+        	ZERO_COUNTER <= 0;
+         
+        ELSIF clk'EVENT AND clk='1' THEN
+      		if EN_ZERO_COUNTER = '1' then 
+            	ZERO_COUNTER <= ZERO_COUNTER +1;
+            end if;
+           
+        END IF;
+            	
+  	END PROCESS;
+  
+  ----ONE_COUNTER--------
+  
+  O_Counter: PROCESS(reset, clk, REST_ONE_COUNTER) 
+  	BEGIN
+    	IF reset = '0' OR REST_ONE_COUNTER = '1' THEN
+        	ONE_COUNTER <= 0;
+         
+        ELSIF clk'EVENT AND clk='1' THEN
+      		if EN_ONE_COUNTER = '1' then 
+            	ONE_COUNTER <= ONE_COUNTER +1;
+            end if;
+           
+        END IF;
+  END PROCESS;
+------------------------------------------------
+
+	PROCESS(clk)
+	  BEGIN
+	    IF clk'event AND clk='1' THEN
+	      X_reg <= x;
+	    END IF;
+	  END PROCESS;
+  
+
+  
+  ----------------------------------------------------------
+  combi_out: PROCESS(curState,ONE_COUNTER,  ZERO_COUNTER  )
+  BEGIN
+    --y <= '0'; -- assign default value
+    IF curState = ONES THEN
+    	if (ZERO_COUNTER = 15) AND  (ONE_COUNTER =17) then
+        	
+      		y <= '1';
+         else 
+         	y <= '0';
+         end if;
+         
+    END IF;
+  END PROCESS; -- combi_output
+  -----------------------------------------------------
+  
+  seq_state: PROCESS (clk, reset)
+  BEGIN
+    IF reset = '0' THEN
+      curState <= INIT;
+    ELSIF clk'EVENT AND clk='1' THEN
+      curState <= nextState;
+    END IF;
+  END PROCESS; -- seq
+  -----------------------------------------------------
+END; -- arch_recog2
